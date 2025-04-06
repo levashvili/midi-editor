@@ -6,11 +6,33 @@ const LABEL_WIDTH = 50;
 const GRID_COLOR = '#ddd';
 const LABEL_COLOR = '#333';
 
+// Color mapping for notes
+const NOTE_COLORS = {
+  'C': '#ff9999',  // brighter red
+  'C#': '#ffb366', // brighter orange-red
+  'D': '#ffcc66',  // brighter orange
+  'D#': '#ffe666', // brighter yellow-orange
+  'E': '#ffff66',  // brighter yellow
+  'F': '#d9ff99',  // brighter yellow-green
+  'F#': '#99ff99', // brighter green
+  'G': '#99ffd9',  // brighter teal-green
+  'G#': '#ccf2ff', // light blue-teal (adjusted to be closer to A)
+  'A': '#d9ccff',  // light purple (adjusted to be closer to G#)
+  'A#': '#f2ccff', // light pink-purple
+  'B': '#ffb3ff',  // brighter pink
+};
+
 function midiToNoteName(midi) {
   const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
   const octave = Math.floor(midi / 12) - 1;
   const name = noteNames[midi % 12];
   return `${name}${octave}`;
+}
+
+function getNoteColor(midi) {
+  const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+  const noteName = noteNames[midi % 12];
+  return NOTE_COLORS[noteName];
 }
 
 export default function PianoRoll({ notes }) {
@@ -40,10 +62,8 @@ export default function PianoRoll({ notes }) {
                 textAlign: 'right',
                 paddingRight: 6,
                 fontSize: 12,
-                background: '#222',
-                color: '#eee',
-                // Remove border here — let the main grid lines do the work
-                // borderBottom: `1px solid ${GRID_COLOR}`,
+                background: getNoteColor(midi),
+                color: '#333',
               }}
             >
               {midiToNoteName(midi)}
@@ -62,22 +82,26 @@ export default function PianoRoll({ notes }) {
           border: '1px solid #ccc',
         }}
       >
-        {/* Horizontal grid lines, one per row */}
-        {Array.from({ length: midiRange + 1 }, (_, i) => (
-          <div
-            key={i}
-            style={{
-              position: 'absolute',
-              top: i * NOTE_HEIGHT,
-              left: 0,
-              width: '100%',
-              height: 1,
-              backgroundColor: GRID_COLOR,
-            }}
-          />
-        ))}
+        {/* Horizontal grid lines and colored backgrounds */}
+        {Array.from({ length: midiRange }, (_, i) => {
+          const midi = maxMidi - i;
+          return (
+            <div
+              key={i}
+              style={{
+                position: 'absolute',
+                top: i * NOTE_HEIGHT,
+                left: 0,
+                width: '100%',
+                height: NOTE_HEIGHT,
+                backgroundColor: getNoteColor(midi),
+                opacity: 0.3,
+              }}
+            />
+          );
+        })}
 
-        {/* MIDI notes: fill entire row to align perfectly */}
+        {/* MIDI notes */}
         {notes.map((note, i) => {
           const top = (maxMidi - note.midi) * NOTE_HEIGHT;
           const left = note.time * PIXELS_PER_SECOND;
@@ -93,7 +117,7 @@ export default function PianoRoll({ notes }) {
                 top,
                 left,
                 width,
-                height: NOTE_HEIGHT,  // fill the row
+                height: NOTE_HEIGHT,
                 backgroundColor: '#007bff',
                 borderRadius: 3,
                 color: 'white',
