@@ -2,11 +2,13 @@ import { useState } from 'react';
 import './App.css';
 import { Midi } from '@tonejs/midi';
 import PianoRoll from './PianoRoll';
+import AudioPlayer from './AudioPlayer';
 
 function App() {
   const [midiFile, setMidiFile] = useState(null);
   const [audioFile, setAudioFile] = useState(null);
   const [notes, setNotes] = useState([]);
+  const [currentTime, setCurrentTime] = useState(0);
 
   const handleMidiUpload = async (e) => {
     const file = e.target.files[0];
@@ -26,6 +28,14 @@ function App() {
     if (file && (file.name.endsWith('.wav') || file.name.endsWith('.mp3'))) {
       setAudioFile(URL.createObjectURL(file));
     }
+  };
+
+  const handleSeek = (time) => {
+    setCurrentTime(time);
+  };
+
+  const handleTimeUpdate = (time) => {
+    setCurrentTime(time);
   };
 
   return (
@@ -50,14 +60,23 @@ function App() {
       {audioFile && (
         <div>
           <p>✅ Audio Loaded</p>
-          <audio controls src={audioFile} />
+          <AudioPlayer 
+            audioFile={audioFile} 
+            notes={notes}
+            currentTime={currentTime}
+            onTimeUpdate={handleTimeUpdate}
+          />
         </div>
       )}
 
       {notes.length > 0 && (
         <>
           <h2>Piano Roll</h2>
-          <PianoRoll notes={notes} />
+          <PianoRoll 
+            notes={notes} 
+            currentTime={currentTime}
+            onSeek={handleSeek}
+          />
         </>
       )}
     </div>
