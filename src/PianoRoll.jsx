@@ -1,10 +1,11 @@
-
 import React from 'react';
 
 const NOTE_HEIGHT = 20;
 const PIXELS_PER_SECOND = 120;
+const LABEL_WIDTH = 50;
+const GRID_COLOR = '#ddd';
+const LABEL_COLOR = '#333';
 
-// MIDI to note name
 function midiToNoteName(midi) {
   const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
   const octave = Math.floor(midi / 12) - 1;
@@ -12,100 +13,95 @@ function midiToNoteName(midi) {
   return `${name}${octave}`;
 }
 
-// Generate range of MIDI note numbers
-function range(start, end) {
-  return Array.from({ length: end - start + 1 }, (_, i) => start + i);
-}
-
 export default function PianoRoll({ notes }) {
   if (!notes || notes.length === 0) return null;
 
   const minMidi = Math.min(...notes.map(n => n.midi));
   const maxMidi = Math.max(...notes.map(n => n.midi));
-  const midiRange = range(minMidi, maxMidi);
+  const midiRange = maxMidi - minMidi + 1;
 
-  const viewHeight = midiRange.length * NOTE_HEIGHT;
-  const viewWidth = Math.max(...notes.map(n => n.time + n.duration)) * PIXELS_PER_SECOND;
+  // figure out total width (seconds → pixels)
+  const maxEndTime = Math.max(...notes.map(n => n.time + n.duration));
+  const viewWidth = maxEndTime * PIXELS_PER_SECOND;
+  const viewHeight = midiRange * NOTE_HEIGHT;
 
   return (
-    <div
-      style={{
-        display: 'flex',
-        border: '1px solid #ccc',
-        background: '#fafafa',
-        overflow: 'auto',
-        width: '100%',
-        height: viewHeight,
-      }}
-    >
-      {/* Piano Labels */}
-      <div style={{ width: 60, position: 'relative' }}>
-        {midiRange.map((midi, i) => (
-          <div
-            key={midi}
-            style={{
-              height: NOTE_HEIGHT,
-              lineHeight: `${NOTE_HEIGHT}px`,
-              borderBottom: '1px solid #ddd',
-              paddingLeft: 4,
-              fontSize: 12,
-              color: '#fff',
-              background: '#333',
-            }}
-          >
-            {midiToNoteName(midi)}
-          </div>
-        ))}
+    <div style={{ display: 'flex', width: '100%', overflow: 'auto' }}>
+      {/* --- Left-hand piano labels --- */}
+      <div style={{ display: 'flex', flexDirection: 'column', width: LABEL_WIDTH }}>
+        {Array.from({ length: midiRange }, (_, i) => {
+          const midi = maxMidi - i;
+          return (
+            <div
+              key={midi}
+              style={{
+                height: NOTE_HEIGHT,
+                lineHeight: `${NOTE_HEIGHT}px`,
+                textAlign: 'right',
+                paddingRight: 6,
+                fontSize: 12,
+                background: '#222',
+                color: '#eee',
+                // Remove border here — let the main grid lines do the work
+                // borderBottom: `1px solid ${GRID_COLOR}`,
+              }}
+            >
+              {midiToNoteName(midi)}
+            </div>
+          );
+        })}
       </div>
 
-      {/* Notes Canvas */}
+      {/* --- Main grid + notes --- */}
       <div
         style={{
           position: 'relative',
           width: viewWidth,
           height: viewHeight,
-          background: '#f8f8f8',
+          background: '#fafafa',
+          border: '1px solid #ccc',
         }}
       >
-        {/* Horizontal lines for each pitch */}
-        {midiRange.map((midi, i) => (
+        {/* Horizontal grid lines, one per row */}
+        {Array.from({ length: midiRange + 1 }, (_, i) => (
           <div
-            key={`line-${midi}`}
+            key={i}
             style={{
               position: 'absolute',
               top: i * NOTE_HEIGHT,
               left: 0,
               width: '100%',
               height: 1,
-              backgroundColor: '#e0e0e0',
+              backgroundColor: GRID_COLOR,
             }}
           />
         ))}
 
-        {/* MIDI notes */}
+        {/* MIDI notes: fill entire row to align perfectly */}
         {notes.map((note, i) => {
-          const y = (maxMidi - note.midi) * NOTE_HEIGHT;
-          const x = note.time * PIXELS_PER_SECOND;
+          const top = (maxMidi - note.midi) * NOTE_HEIGHT;
+          const left = note.time * PIXELS_PER_SECOND;
           const width = note.duration * PIXELS_PER_SECOND;
-
           return (
             <div
               key={i}
+              title={`Note: ${midiToNoteName(note.midi)} 
+                      | Start: ${note.time.toFixed(2)}s 
+                      | Duration: ${note.duration.toFixed(2)}s`}
               style={{
                 position: 'absolute',
-                top: y,
-                left: x,
+                top,
+                left,
                 width,
-                height: NOTE_HEIGHT - 2,
+                height: NOTE_HEIGHT,  // fill the row
                 backgroundColor: '#007bff',
+                borderRadius: 3,
                 color: 'white',
                 fontSize: 10,
-                paddingLeft: 3,
-                display: 'flex',
-                alignItems: 'center',
-                borderRadius: 2,
+                textAlign: 'center',
+                lineHeight: `${NOTE_HEIGHT}px`,
+                overflow: 'hidden',
               }}
-              title={`Note: ${midiToNoteName(note.midi)}\nStart: ${note.time.toFixed(2)}s\nDuration: ${note.duration.toFixed(2)}s`}
             >
               {midiToNoteName(note.midi)}
             </div>
@@ -115,4 +111,3 @@ export default function PianoRoll({ notes }) {
     </div>
   );
 }
-
