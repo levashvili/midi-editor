@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import './App.css';
 import { Midi } from '@tonejs/midi';
 import PianoRoll from './PianoRoll';
@@ -9,6 +9,7 @@ function App() {
   const [audioFile, setAudioFile] = useState(null);
   const [notes, setNotes] = useState([]);
   const [currentTime, setCurrentTime] = useState(0);
+  const [isPlaying, setIsPlaying] = useState(false);
 
   const handleMidiUpload = async (e) => {
     const file = e.target.files[0];
@@ -38,6 +39,26 @@ function App() {
     setCurrentTime(time);
   };
 
+  const togglePlayback = () => {
+    setIsPlaying(!isPlaying);
+  };
+
+  // Handle keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      // Spacebar for play/pause
+      if (e.code === 'Space' && (midiFile || audioFile)) {
+        e.preventDefault(); // Prevent page scrolling
+        togglePlayback();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [midiFile, audioFile, isPlaying]);
+
   return (
     <div style={{ padding: '2rem' }}>
       <h1>MIDI Editor</h1>
@@ -65,6 +86,8 @@ function App() {
             notes={notes}
             currentTime={currentTime}
             onTimeUpdate={handleTimeUpdate}
+            isPlaying={isPlaying}
+            onPlayPause={togglePlayback}
           />
         </div>
       )}
@@ -79,6 +102,10 @@ function App() {
           />
         </>
       )}
+
+      <div style={{ marginTop: '1rem', fontSize: '0.8rem', color: '#666' }}>
+        <p>Keyboard shortcuts: Spacebar - Play/Pause</p>
+      </div>
     </div>
   );
 }

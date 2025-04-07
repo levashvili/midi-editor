@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 
 const NOTE_HEIGHT = 20;
 const PIXELS_PER_SECOND = 120;
@@ -7,6 +7,8 @@ const GRID_COLOR = '#ddd';
 const LABEL_COLOR = '#333';
 const PLAYHEAD_COLOR = '#ff0000';
 const PLAYHEAD_WIDTH = 2;
+const PLAYHEAD_OFFSET = 300; // Fixed position from the left edge of the viewport
+const LEFT_PADDING = 200; // Padding to the left of the playhead
 
 // Color mapping for notes
 const NOTE_COLORS = {
@@ -44,6 +46,9 @@ function formatTime(seconds) {
 }
 
 export default function PianoRoll({ notes, currentTime = 0, onSeek }) {
+  const containerRef = useRef(null);
+  const scrollRef = useRef(null);
+
   if (!notes || notes.length === 0) return null;
 
   const minMidi = Math.min(...notes.map(n => n.midi));
@@ -52,21 +57,30 @@ export default function PianoRoll({ notes, currentTime = 0, onSeek }) {
 
   // figure out total width (seconds → pixels)
   const maxEndTime = Math.max(...notes.map(n => n.time + n.duration));
-  const viewWidth = maxEndTime * PIXELS_PER_SECOND;
+  const viewWidth = maxEndTime * PIXELS_PER_SECOND + LEFT_PADDING; // Add padding to total width
   const viewHeight = midiRange * NOTE_HEIGHT;
 
-  // Calculate playhead position
-  const playheadPosition = currentTime * PIXELS_PER_SECOND;
+  // Calculate playhead position in the content
+  const playheadPosition = currentTime * PIXELS_PER_SECOND + LEFT_PADDING; // Add padding to playhead position
 
   // Handle click on the piano roll for seeking
   const handlePianoRollClick = (e) => {
     if (!onSeek) return;
     
     const rect = e.currentTarget.getBoundingClientRect();
-    const x = e.clientX - rect.left - LABEL_WIDTH;
-    const time = x / PIXELS_PER_SECOND;
+    const scrollLeft = scrollRef.current?.scrollLeft || 0;
+    const x = e.clientX - rect.left - LABEL_WIDTH + scrollLeft;
+    const time = Math.max(0, (x - LEFT_PADDING) / PIXELS_PER_SECOND); // Adjust for padding
     onSeek(time);
   };
+
+  // Auto-scroll the content to keep the playhead in view
+  useEffect(() => {
+    if (scrollRef.current) {
+      const targetScroll = playheadPosition - PLAYHEAD_OFFSET;
+      scrollRef.current.scrollLeft = targetScroll;
+    }
+  }, [playheadPosition]);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
@@ -83,9 +97,25 @@ export default function PianoRoll({ notes, currentTime = 0, onSeek }) {
         </div>
       </div>
       
-      <div style={{ display: 'flex', width: '100%', overflow: 'auto' }}>
+      <div 
+        ref={containerRef}
+        style={{ 
+          display: 'flex', 
+          width: '100%', 
+          overflow: 'hidden',
+          position: 'relative'
+        }}
+      >
         {/* --- Left-hand piano labels --- */}
-        <div style={{ display: 'flex', flexDirection: 'column', width: LABEL_WIDTH }}>
+        <div style={{ 
+          display: 'flex', 
+          flexDirection: 'column', 
+          width: LABEL_WIDTH,
+          position: 'sticky',
+          left: 0,
+          zIndex: 2,
+          background: '#fafafa'
+        }}>
           {Array.from({ length: midiRange }, (_, i) => {
             const midi = maxMidi - i;
             return (
@@ -109,6 +139,7 @@ export default function PianoRoll({ notes, currentTime = 0, onSeek }) {
 
         {/* --- Main grid + notes --- */}
         <div
+          ref={scrollRef}
           style={{
             position: 'relative',
             width: viewWidth,
@@ -116,9 +147,23 @@ export default function PianoRoll({ notes, currentTime = 0, onSeek }) {
             background: '#fafafa',
             border: '1px solid #ccc',
             cursor: 'pointer',
+            overflow: 'auto',
+            marginLeft: -1, // Compensate for border
           }}
           onClick={handlePianoRollClick}
         >
+          {/* Left padding area */}
+          <div
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: LEFT_PADDING,
+              height: '100%',
+              background: '#f0f0f0',
+            }}
+          />
+
           {/* Horizontal grid lines and colored backgrounds */}
           {Array.from({ length: midiRange }, (_, i) => {
             const midi = maxMidi - i;
@@ -128,7 +173,7 @@ export default function PianoRoll({ notes, currentTime = 0, onSeek }) {
                 style={{
                   position: 'absolute',
                   top: i * NOTE_HEIGHT,
-                  left: 0,
+                  left: LEFT_PADDING, // Start after padding
                   width: '100%',
                   height: NOTE_HEIGHT,
                   backgroundColor: getNoteColor(midi),
@@ -145,7 +190,7 @@ export default function PianoRoll({ notes, currentTime = 0, onSeek }) {
               style={{
                 position: 'absolute',
                 top: 0,
-                left: i * PIXELS_PER_SECOND,
+                left: LEFT_PADDING + i * PIXELS_PER_SECOND, // Start after padding
                 width: 1,
                 height: '100%',
                 backgroundColor: GRID_COLOR,
@@ -160,7 +205,7 @@ export default function PianoRoll({ notes, currentTime = 0, onSeek }) {
               style={{
                 position: 'absolute',
                 top: -20,
-                left: i * PIXELS_PER_SECOND,
+                left: LEFT_PADDING + i * PIXELS_PER_SECOND, // Start after padding
                 fontSize: '10px',
                 color: '#666',
                 transform: 'translateX(-10px)',
@@ -173,7 +218,7 @@ export default function PianoRoll({ notes, currentTime = 0, onSeek }) {
           {/* MIDI notes */}
           {notes.map((note, i) => {
             const top = (maxMidi - note.midi) * NOTE_HEIGHT;
-            const left = note.time * PIXELS_PER_SECOND;
+            const left = LEFT_PADDING + note.time * PIXELS_PER_SECOND; // Add padding to note position
             const width = note.duration * PIXELS_PER_SECOND;
             return (
               <div
@@ -200,21 +245,22 @@ export default function PianoRoll({ notes, currentTime = 0, onSeek }) {
               </div>
             );
           })}
-
-          {/* Playhead */}
-          <div
-            style={{
-              position: 'absolute',
-              top: 0,
-              left: playheadPosition,
-              width: PLAYHEAD_WIDTH,
-              height: '100%',
-              backgroundColor: PLAYHEAD_COLOR,
-              boxShadow: '0 0 5px rgba(255, 0, 0, 0.7)',
-              pointerEvents: 'none',
-            }}
-          />
         </div>
+
+        {/* Fixed playhead */}
+        <div
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: LABEL_WIDTH + PLAYHEAD_OFFSET,
+            width: PLAYHEAD_WIDTH,
+            height: viewHeight,
+            backgroundColor: PLAYHEAD_COLOR,
+            boxShadow: '0 0 5px rgba(255, 0, 0, 0.7)',
+            pointerEvents: 'none',
+            zIndex: 1,
+          }}
+        />
       </div>
     </div>
   );
