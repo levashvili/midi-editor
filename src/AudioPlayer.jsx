@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import * as Tone from 'tone';
 
-export default function AudioPlayer({ audioFile, notes, currentTime, onTimeUpdate, isPlaying, onPlayPause }) {
+export default function AudioPlayer({ audioFile, notes, currentTime, onTimeUpdate }) {
+  const [isPlaying, setIsPlaying] = useState(false);
   const [duration, setDuration] = useState(0);
   const playerRef = useRef(null);
   const synthRef = useRef(null);
@@ -104,22 +105,23 @@ export default function AudioPlayer({ audioFile, notes, currentTime, onTimeUpdat
     };
   }, [isPlaying, onTimeUpdate]);
 
-  // Handle play/pause state changes
-  useEffect(() => {
-    const handlePlayback = async () => {
-      if (isPlaying) {
-        await Tone.start();
-        transportRef.current.start();
-        playerRef.current.start();
-        scheduleNotes(transportRef.current.seconds);
-      } else {
-        transportRef.current.pause();
-        playerRef.current.stop();
-      }
-    };
-
-    handlePlayback();
-  }, [isPlaying]);
+  // Handle play/pause
+  const togglePlayback = async () => {
+    await Tone.start();
+    
+    if (!isPlaying) {
+      // Start playback
+      transportRef.current.start();
+      playerRef.current.start();
+      scheduleNotes(transportRef.current.seconds);
+      setIsPlaying(true);
+    } else {
+      // Pause playback
+      transportRef.current.pause();
+      playerRef.current.stop();
+      setIsPlaying(false);
+    }
+  };
 
   // Handle seeking
   const handleSeek = (time) => {
@@ -149,7 +151,7 @@ export default function AudioPlayer({ audioFile, notes, currentTime, onTimeUpdat
   return (
     <div className="audio-player">
       <div className="transport-controls">
-        <button onClick={onPlayPause}>
+        <button onClick={togglePlayback}>
           {isPlaying ? 'Pause' : 'Play'}
         </button>
         <div className="time-display">
